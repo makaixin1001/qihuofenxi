@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>东方财富期货实时行情</title>
+    <script>const API_URL = "https://weathered-rain-4f57.ma365032mkx.workers.dev/";</script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 p-4">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold mb-4">东方财富期货实时行情</h1>
+        <p class="text-green-600 mb-4 font-medium" id="update-time">加载中...</p>
+        
+        <div class="bg-white rounded-xl shadow border overflow-hidden">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-slate-100 border-b">
+                        <th class="p-3 text-left">合约代码</th>
+                        <th class="p-3 text-left">合约名称</th>
+                        <th class="p-3 text-right">最新价</th>
+                        <th class="p-3 text-right">涨跌幅</th>
+                        <th class="p-3 text-right">成交量</th>
+                        <th class="p-3 text-right">持仓量</th>
+                    </tr>
+                </thead>
+                <tbody id="data-list" class="divide-y"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            const timeEl = document.getElementById("update-time");
+            const listEl = document.getElementById("data-list");
+            
+            try {
+                const res = await fetch(API_URL);
+                const data = await res.json();
+                const list = data.data.diff;
+
+                let html = "";
+                list.forEach(item => {
+                    const color = item.f4 > 0 ? "text-red-500" : item.f4 < 0 ? "text-green-500" : "text-gray-500";
+                    html += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-mono">${item.f12}</td>
+                        <td class="p-3 font-medium">${item.f14}</td>
+                        <td class="p-3 text-right font-bold">${item.f2}</td>
+                        <td class="p-3 text-right font-semibold ${color}">${item.f4}%</td>
+                        <td class="p-3 text-right">${item.f5}</td>
+                        <td class="p-3 text-right">${item.f22}</td>
+                    </tr>
+                    `;
+                });
+
+                listEl.innerHTML = html;
+                timeEl.innerText = "✅ 实时数据 | 更新时间：" + new Date().toLocaleString('zh-CN');
+
+            } catch (e) {
+                timeEl.innerText = "❌ 数据加载失败，请刷新";
+                console.error(e);
+            }
+        }
+
+        // 首次加载 + 30秒自动刷新
+        loadData();
+        setInterval(loadData, 30000);
+    </script>
+</body>
+</html>
