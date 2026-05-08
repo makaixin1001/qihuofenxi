@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>期货数据中心 · 加强版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Noto+Sans+SC:wght@400;500;700&amp;display=swap');
+        body { font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif; }
+        .futures-table { font-size: 13px; }
+        .futures-table th { background: #0f172a; color: #64748b; font-weight: 600; }
+        .positive { color: #f87171; font-weight: 600; }
+        .negative { color: #4ade80; font-weight: 600; }
+        .card-hover { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); }
+        .metric-value { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200">
+    <div class="max-w-[1400px] mx-auto px-6 py-6">
+        <!-- 头部 -->
+        <div class="flex items-end justify-between mb-6">
+            <div>
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-chart-line text-4xl text-blue-400"></i>
+                    <div>
+                        <h1 class="text-4xl font-bold tracking-tight">期货数据中心</h1>
+                        <p class="text-slate-400 mt-1">东方财富实时行情 · 智能分析版</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="flex items-center bg-slate-900 rounded-2xl px-4 py-1.5 text-sm">
+                    <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse mr-2"></div>
+                    <span id="update-time" class="text-emerald-400 font-medium">实时更新中</span>
+                </div>
+                
+                <button onclick="loadData()" 
+                        class="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium transition-all active:scale-[0.985]">
+                    <i class="fa-solid fa-sync-alt"></i>
+                    <span>刷新</span>
+                </button>
+                
+                <button onclick="exportToCSV()" 
+                        class="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-2xl text-sm font-medium transition-all">
+                    <i class="fa-solid fa-download"></i>
+                    <span>导出CSV</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 智能评分卡片 -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            <!-- 活跃度Top -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 card-hover">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <div class="text-emerald-400 text-xs font-medium tracking-widest">ACTIVE</div>
+                        <div class="text-xl font-semibold mt-1">活跃度Top5</div>
+                    </div>
+                    <i class="fa-solid fa-bolt text-2xl text-emerald-400/70"></i>
+                </div>
+                <div id="top-active" class="space-y-2 text-sm"></div>
+            </div>
+
+            <!-- 持仓异动 -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 card-hover">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <div class="text-violet-400 text-xs font-medium tracking-widest">OI SURGE</div>
+                        <div class="text-xl font-semibold mt-1">持仓激增Top5</div>
+                    </div>
+                    <i class="fa-solid fa-chart-line text-2xl text-violet-400/70"></i>
+                </div>
+                <div id="top-oi-surge" class="space-y-2 text-sm"></div>
+            </div>
+
+            <!-- 量价齐升 -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 card-hover">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <div class="text-amber-400 text-xs font-medium tracking-widest">VOLUME+PRICE</div>
+                        <div class="text-xl font-semibold mt-1">量价齐升Top5</div>
+                    </div>
+                    <i class="fa-solid fa-handshake text-2xl text-amber-400/70"></i>
+                </div>
+                <div id="top-volume-price" class="space-y-2 text-sm"></div>
+            </div>
+
+            <!-- 高波动 -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 card-hover">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <div class="text-rose-400 text-xs font-medium tracking-widest">VOLATILITY</div>
+                        <div class="text-xl font-semibold mt-1">高波动Top5</div>
+                    </div>
+                    <i class="fa-solid fa-chart-area text-2xl text-rose-400/70"></i>
+                </div>
+                <div id="top-volatility" class="space-y-2 text-sm"></div>
+            </div>
+
+            <!-- 持仓Top -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 card-hover">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <div class="text-sky-400 text-xs font-medium tracking-widest">OPEN INTEREST</div>
+                        <div class="text-xl font-semibold mt-1">持仓Top5</div>
+                    </div>
+                    <i class="fa-solid fa-layer-group text-2xl text-sky-400/70"></i>
+                </div>
+                <div id="top-oi" class="space-y-2 text-sm"></div>
+            </div>
+
+            <!-- 成交Top -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 card-hover">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <div class="text-teal-400 text-xs font-medium tracking-widest">VOLUME</div>
+                        <div class="text-xl font-semibold mt-1">成交Top5</div>
+                    </div>
+                    <i class="fa-solid fa-exchange-alt text-2xl text-teal-400/70"></i>
+                </div>
+                <div id="top-volume" class="space-y-2 text-sm"></div>
+            </div>
+        </div>
+
+        <!-- 筛选栏 -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 mb-4 flex flex-wrap items-center gap-4">
+            <div class="flex-1 min-w-[220px]">
+                <div class="relative">
+                    <i class="fa-solid fa-search absolute left-4 top-3 text-slate-400"></i>
+                    <input id="search-input" type="text" placeholder="搜索合约名称或代码..." 
+                           class="w-full bg-slate-950 border border-slate-700 focus:border-blue-500 pl-11 py-2.5 rounded-2xl text-sm outline-none"
+                           onkeyup="filterTable()">
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3 text-sm">
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1">最小成交量(万)</label>
+                    <input id="min-volume" type="number" value="0" class="bg-slate-950 border border-slate-700 w-24 px-3 py-1.5 rounded-xl text-sm" oninput="filterTable()">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1">最小持仓量(万)</label>
+                    <input id="min-oi" type="number" value="0" class="bg-slate-950 border border-slate-700 w-24 px-3 py-1.5 rounded-xl text-sm" oninput="filterTable()">
+                </div>
+                
+                <div class="pt-5">
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="active-only" class="sr-only peer" onchange="filterTable()">
+                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        <span class="ml-2 text-xs text-slate-300">仅活跃合约</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主表格 -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
+            <table class="w-full futures-table">
+                <thead>
+                    <tr class="border-b border-slate-700">
+                        <th class="px-6 py-4 text-left cursor-pointer" onclick="sortTable(0)">代码 <i class="fa-solid fa-sort ml-1 text-xs"></i></th>
+                        <th class="px-6 py-4 text-left cursor-pointer" onclick="sortTable(1)">名称 <i class="fa-solid fa-sort ml-1 text-xs"></i></th>
+                        <th class="px-6 py-4 text-right cursor-pointer" onclick="sortTable(2)">最新价 <i class="fa-solid fa-sort ml-1 text-xs"></i></th>
+                        <th class="px-6 py-4 text-right cursor-pointer" onclick="sortTable(3)">涨跌幅 <i class="fa-solid fa-sort ml-1 text-xs"></i></th>
+                        <th class="px-6 py-4 text-right cursor-pointer" onclick="sortTable(4)">持仓量 <i class="fa-solid fa-sort ml-1 text-xs"></i></th>
+                        <th class="px-6 py-4 text-right cursor-pointer" onclick="sortTable(5)">成交量 <i class="fa-solid fa-sort ml-1 text-xs"></i></th>
+                        <th class="px-6 py-4 text-right">最高/最低</th>
+                        <th class="px-6 py-4 text-center">智能评分</th>
+                    </tr>
+                </thead>
+                <tbody id="main-table" class="divide-y divide-slate-800 text-sm"></tbody>
+            </table>
+        </div>
+        
+        <div class="flex justify-between items-center mt-3 px-2 text-xs text-slate-500">
+            <div>数据来源：东方财富 · 每30秒自动刷新</div>
+            <div id="total-count"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "https://push2delay.eastmoney.com/api/qt/clist/get";
+        let allData = [];
+        
+        function getHeaders() {
+            return {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+                "Referer": "https://quote.eastmoney.com/center/gridlist.html?type=futures",
+                "Origin": "https://quote.eastmoney.com",
+                "Accept": "application/json"
+            };
+        }
+
+        async function loadData() {
+            const tbody = document.getElementById('main-table');
+            document.getElementById('update-time').innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> 获取中...';
+            
+            try {
+                const params = new URLSearchParams({
+                    np: "1", fltt: "2", invt: "2",
+                    fields: "f12,f14,f2,f3,f4,f5,f6,f15,f16,f17,f18,f22,f23",
+                    fs: "m:113,m:114,m:115,m:116,m:117,m:118,m:119,m:120,m:121,m:122,m:123,m:124,m:125,m:126,m:127,m:128,m:129,m:130,m:131,m:132,m:133,m:134,m:135,m:136,m:137,m:138,m:139,m:140,m:141,m:142",
+                    ut: "bd1d9ddb040897e8b1a2a5c0a5a2f5d4"
+                });
+
+                const res = await fetch(`${API_URL}?${params}`, { headers: getHeaders() });
+                const json = await res.json();
+                allData = json.data.diff || [];
+                
+                document.getElementById('update-time').innerHTML = `更新：${new Date().toLocaleTimeString()} <span class="text-emerald-400">●</span>`;
+                
+                renderAll(allData);
+                
+            } catch (e) {
+                console.error(e);
+                document.getElementById('update-time').innerHTML = '<span class="text-red-400">获取失败，点击刷新重试</span>';
+            }
+        }
+
+        function calculateScore(item) {
+            const volume = parseFloat(item.f5) || 0;
+            const oi = parseFloat(item.f22) || 0;
+            const change = parseFloat(item.f4) || 0;
+            const price = parseFloat(item.f2) || 0;
+            
+            // 简单智能评分模型（可根据需要调整权重）
+            let score = 0;
+            score += (volume / 100000) * 0.35;           // 成交量权重
+            score += (oi / 1000000) * 0.25;              // 持仓量权重
+            score += Math.abs(change) * 0.25;            // 涨跌幅权重
+            score += (price > 10000 ? 10 : price > 5000 ? 5 : 0); // 价格区间加分
+            
+            return Math.min(Math.round(score), 100);
+        }
+
+        function renderAll(items) {
+            // 4个榜单
+            renderTopList('top-active', [...items].sort((a,b) => (b.f5 * Math.abs(b.f4)) - (a.f5 * Math.abs(a.f4))).slice(0,5), 'f5', '万手');
+            renderTopList('top-oi-surge', [...items].sort((a,b) => (b.f22 - a.f22)).slice(0,5), 'f22', '万手');
+            renderTopList('top-volume-price', [...items].sort((a,b) => (b.f5 * Math.abs(b.f4)) - (a.f5 * Math.abs(a.f4))).slice(0,5), 'f5', '万手');
+            renderTopList('top-volatility', [...items].sort((a,b) => Math.abs(b.f4) - Math.abs(a.f4)).slice(0,5), 'f4', '%');
+            renderTopList('top-oi', [...items].sort((a,b) => b.f22 - a.f22).slice(0,5), 'f22', '万手');
+            renderTopList('top-volume', [...items].sort((a,b) => b.f5 - a.f5).slice(0,5), 'f5', '万手');
+            
+            // 主表格
+            filterTable();
+        }
+
+        function renderTopList(id, list, key, unit) {
+            const el = document.getElementById(id);
+            el.innerHTML = list.map(item => {
+                const val = parseFloat(item[key] || 0);
+                const display = key === 'f4' ? `${val}%` : (val/10000).toFixed(1) + unit;
+                return `<div class="flex justify-between text-xs py-0.5"><span class="text-slate-300">${item.f14}</span><span class="${key==='f4' && val>0?'positive':key==='f4'&&val<0?'negative':''}">${display}</span></div>`;
+            }).join('');
+        }
+
+        window.filterTable = function() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const minVol = parseFloat(document.getElementById('min-volume').value) || 0;
+            const minOI = parseFloat(document.getElementById('min-oi').value) || 0;
+            const activeOnly = document.getElementById('active-only').checked;
+            
+            const tbody = document.getElementById('main-table');
+            tbody.innerHTML = '';
+            
+            let filtered = allData.filter(item => {
+                const name = (item.f14 || '').toLowerCase();
+                const code = (item.f12 || '').toLowerCase();
+                const vol = parseFloat(item.f5) / 10000;
+                const oi = parseFloat(item.f22) / 10000;
+                
+                if (search && !name.includes(search) && !code.includes(search)) return false;
+                if (vol < minVol) return false;
+                if (oi < minOI) return false;
+                if (activeOnly && vol < 1) return false; // 简单活跃定义
+                
+                return true;
+            });
+            
+            // 排序（默认按成交量）
+            filtered.sort((a, b) => parseFloat(b.f5) - parseFloat(a.f5));
+            
+            filtered.forEach(item => {
+                const change = parseFloat(item.f4 || 0);
+                const score = calculateScore(item);
+                
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/50 border-b border-slate-800';
+                tr.innerHTML = `
+                    <td class="px-6 py-3 font-mono text-xs text-slate-400">${item.f12}</td>
+                    <td class="px-6 py-3 font-medium">${item.f14}</td>
+                    <td class="px-6 py-3 text-right font-semibold">${item.f2}</td>
+                    <td class="px-6 py-3 text-right font-semibold ${change > 0 ? 'positive' : change < 0 ? 'negative' : ''}">${item.f4}%</td>
+                    <td class="px-6 py-3 text-right">${(parseFloat(item.f22)/10000).toFixed(1)}万</td>
+                    <td class="px-6 py-3 text-right">${(parseFloat(item.f5)/10000).toFixed(1)}万</td>
+                    <td class="px-6 py-3 text-right text-xs text-slate-400">${item.f15}/${item.f16}</td>
+                    <td class="px-6 py-3 text-center">
+                        <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-mono ${score > 70 ? 'bg-emerald-500/20 text-emerald-400' : score > 40 ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700 text-slate-400'}">${score}</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            document.getElementById('total-count').innerHTML = `共 ${filtered.length} 个合约`;
+        }
+
+        window.exportToCSV = function() {
+            if (!allData.length) return alert('暂无数据');
+            
+            let csv = '代码,名称,最新价,涨跌,涨跌幅,持仓量,成交量\n';
+            allData.forEach(item => {
+                csv += `${item.f12},${item.f14},${item.f2},${item.f3},${item.f4},${item.f22},${item.f5}\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `futures_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+
+        // 初始化
+        window.onload = function() {
+            loadData();
+            setInterval(loadData, 30000);
+            
+            // 回车搜索
+            document.getElementById('search-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') filterTable();
+            });
+            
+            // 初始筛选
+            setTimeout(filterTable, 1500);
+        }
+    </script>
+</body>
+</html>
