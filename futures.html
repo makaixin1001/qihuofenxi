@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>东方财富期货实时行情 - 完整版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Noto+Sans+SC:wght@400;500;700&amp;display=swap');
+        body { font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif; }
+        .data-table { font-size: 14px; }
+        .data-table th { background: #f8fafc; font-weight: 600; }
+        .positive { color: #ef4444; font-weight: 600; }
+        .negative { color: #22c55e; font-weight: 600; }
+        .card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
+        .loading { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900">东方财富期货实时行情</h1>
+                <p class="text-slate-500 mt-1" id="update-time">加载中...</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="loadData()" 
+                        class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-2 text-sm font-medium transition-colors">
+                    <i class="fa-solid fa-sync-alt"></i>
+                    <span>刷新</span>
+                </button>
+                <div class="px-3 py-1.5 bg-white rounded-xl border text-sm flex items-center gap-2">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-slate-600">实时数据</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <!-- 涨幅前5 -->
+            <div class="bg-white rounded-2xl p-5 border card">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-trend-up text-red-500"></i>
+                        <span class="font-semibold text-slate-700">涨幅前5</span>
+                    </div>
+                </div>
+                <div id="top-gainers" class="space-y-2 text-sm"></div>
+            </div>
+
+            <!-- 跌幅前5 -->
+            <div class="bg-white rounded-2xl p-5 border card">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-trend-down text-emerald-500"></i>
+                        <span class="font-semibold text-slate-700">跌幅前5</span>
+                    </div>
+                </div>
+                <div id="top-losers" class="space-y-2 text-sm"></div>
+            </div>
+
+            <!-- 持仓前5 -->
+            <div class="bg-white rounded-2xl p-5 border card">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-violet-500"></i>
+                        <span class="font-semibold text-slate-700">持仓前5</span>
+                    </div>
+                </div>
+                <div id="top-oi" class="space-y-2 text-sm"></div>
+            </div>
+
+            <!-- 成交前5 -->
+            <div class="bg-white rounded-2xl p-5 border card">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-handshake text-amber-500"></i>
+                        <span class="font-semibold text-slate-700">成交前5</span>
+                    </div>
+                </div>
+                <div id="top-volume" class="space-y-2 text-sm"></div>
+            </div>
+        </div>
+
+        <!-- Main Table -->
+        <div class="bg-white rounded-2xl border overflow-hidden">
+            <div class="px-6 py-4 border-b flex items-center justify-between">
+                <h3 class="font-semibold text-lg">全部期货合约</h3>
+                <div class="text-sm text-slate-500" id="total-count"></div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full data-table">
+                    <thead>
+                        <tr class="border-b">
+                            <th class="px-6 py-3 text-left">代码</th>
+                            <th class="px-6 py-3 text-left">名称</th>
+                            <th class="px-6 py-3 text-right">最新价</th>
+                            <th class="px-6 py-3 text-right">涨跌</th>
+                            <th class="px-6 py-3 text-right">涨跌幅</th>
+                            <th class="px-6 py-3 text-right">持仓量</th>
+                            <th class="px-6 py-3 text-right">成交量</th>
+                            <th class="px-6 py-3 text-right">最高/最低</th>
+                        </tr>
+                    </thead>
+                    <tbody id="main-table" class="divide-y"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Raw JSON Toggle -->
+        <div class="mt-4">
+            <details class="bg-white border rounded-2xl p-4">
+                <summary class="cursor-pointer font-medium text-slate-700 flex items-center gap-2">
+                    <i class="fa-solid fa-code"></i> 查看原始JSON数据（供AI工具读取）
+                </summary>
+                <pre id="raw-json" class="mt-3 p-4 bg-slate-900 text-emerald-400 text-xs rounded-xl overflow-auto max-h-[400px]"></pre>
+            </details>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "https://push2delay.eastmoney.com/api/qt/clist/get";
+        
+        function getHeaders() {
+            return {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+                "Referer": "https://quote.eastmoney.com/center/gridlist.html?type=futures",
+                "Origin": "https://quote.eastmoney.com",
+                "Accept": "application/json, text/plain, */*"
+            };
+        }
+
+        async function loadData() {
+            const tableBody = document.getElementById('main-table');
+            const updateTime = document.getElementById('update-time');
+            
+            updateTime.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> 正在获取最新数据...';
+            
+            try {
+                const params = new URLSearchParams({
+                    np: "1", fltt: "2", invt: "2",
+                    fields: "f12,f14,f2,f3,f4,f5,f6,f15,f16,f17,f18,f22,f23",
+                    fs: "m:113,m:114,m:115,m:116,m:117,m:118,m:119,m:120,m:121,m:122,m:123,m:124,m:125,m:126,m:127,m:128,m:129,m:130,m:131,m:132,m:133,m:134,m:135,m:136,m:137,m:138,m:139,m:140,m:141,m:142",
+                    ut: "bd1d9ddb040897e8b1a2a5c0a5a2f5d4"
+                });
+
+                const response = await fetch(`${API_URL}?${params}`, { headers: getHeaders() });
+                const data = await response.json();
+
+                if (!data.data || !data.data.diff) {
+                    throw new Error("数据格式异常");
+                }
+
+                const items = data.data.diff;
+                
+                // Update time
+                updateTime.innerHTML = `最后更新：${new Date().toLocaleTimeString('zh-CN')} <span class="text-emerald-500">●</span>`;
+                
+                // Summary cards
+                renderSummaryCards(items);
+                
+                // Main table
+                renderMainTable(items, tableBody);
+                
+                // Raw JSON
+                document.getElementById('raw-json').textContent = JSON.stringify(data, null, 2);
+                
+                // Total count
+                document.getElementById('total-count').textContent = `${items.length} 个合约`;
+                
+            } catch (error) {
+                console.error(error);
+                updateTime.innerHTML = `<span class="text-red-500">获取失败，点击刷新重试</span>`;
+                tableBody.innerHTML = `<tr><td colspan="8" class="px-6 py-8 text-center text-red-500">数据获取失败，请稍后再试</td></tr>`;
+            }
+        }
+
+        function renderSummaryCards(items) {
+            // 涨幅前5
+            const topGainers = [...items].sort((a, b) => parseFloat(b.f4 || 0) - parseFloat(a.f4 || 0)).slice(0, 5);
+            document.getElementById('top-gainers').innerHTML = topGainers.map(item => 
+                `<div class="flex justify-between"><span class="font-mono text-xs">${item.f14}</span><span class="positive">${item.f4}%</span></div>`
+            ).join('');
+
+            // 跌幅前5
+            const topLosers = [...items].sort((a, b) => parseFloat(a.f4 || 0) - parseFloat(b.f4 || 0)).slice(0, 5);
+            document.getElementById('top-losers').innerHTML = topLosers.map(item => 
+                `<div class="flex justify-between"><span class="font-mono text-xs">${item.f14}</span><span class="negative">${item.f4}%</span></div>`
+            ).join('');
+
+            // 持仓前5
+            const topOI = [...items].sort((a, b) => parseFloat(b.f22 || 0) - parseFloat(a.f22 || 0)).slice(0, 5);
+            document.getElementById('top-oi').innerHTML = topOI.map(item => 
+                `<div class="flex justify-between"><span class="font-mono text-xs">${item.f14}</span><span>${(parseFloat(item.f22)/10000).toFixed(1)}万</span></div>`
+            ).join('');
+
+            // 成交前5
+            const topVolume = [...items].sort((a, b) => parseFloat(b.f5 || 0) - parseFloat(a.f5 || 0)).slice(0, 5);
+            document.getElementById('top-volume').innerHTML = topVolume.map(item => 
+                `<div class="flex justify-between"><span class="font-mono text-xs">${item.f14}</span><span>${(parseFloat(item.f5)/10000).toFixed(1)}万</span></div>`
+            ).join('');
+        }
+
+        function renderMainTable(items, container) {
+            container.innerHTML = '';
+            
+            items.forEach(item => {
+                const change = parseFloat(item.f4 || 0);
+                const changeClass = change > 0 ? 'positive' : change < 0 ? 'negative' : '';
+                
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50';
+                row.innerHTML = `
+                    <td class="px-6 py-3 font-mono text-slate-600">${item.f12}</td>
+                    <td class="px-6 py-3 font-medium">${item.f14}</td>
+                    <td class="px-6 py-3 text-right font-semibold">${item.f2}</td>
+                    <td class="px-6 py-3 text-right ${changeClass}">${item.f3}</td>
+                    <td class="px-6 py-3 text-right font-semibold ${changeClass}">${item.f4}%</td>
+                    <td class="px-6 py-3 text-right">${(parseFloat(item.f22)/10000).toFixed(1)}万</td>
+                    <td class="px-6 py-3 text-right">${(parseFloat(item.f5)/10000).toFixed(1)}万</td>
+                    <td class="px-6 py-3 text-right text-xs text-slate-500">${item.f15}/${item.f16}</td>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        // Auto refresh every 30 seconds
+        let autoRefreshTimer;
+        function startAutoRefresh() {
+            clearInterval(autoRefreshTimer);
+            autoRefreshTimer = setInterval(() => {
+                loadData();
+            }, 30000);
+        }
+
+        // Initialize
+        window.onload = function() {
+            loadData();
+            startAutoRefresh();
+            
+            // Keyboard shortcut
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'r' || e.key === 'R') {
+                    if (document.activeElement.tagName === 'INPUT') return;
+                    e.preventDefault();
+                    loadData();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
